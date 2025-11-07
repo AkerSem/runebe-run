@@ -25,7 +25,7 @@
     box-shadow:var(--shadow); background:#ffffff;
   }
 
-  /* Cam görünümlü paneller */
+  /* Glass panels */
   #titleScreen,#leaderboardPanel,#gameOverPanel{
     position:absolute; inset:0; display:flex; flex-direction:column; gap:12px;
     align-items:center; justify-content:center; text-align:center;
@@ -52,7 +52,7 @@
   td,th{padding:10px 14px; border-bottom:1px solid var(--stroke)}
   th{background:#f7f9ff}
 
-  /* Mobil pad */
+  /* Mobile pad */
   #mobilePad{
     position:absolute; left:0; right:0; bottom:14px;
     display:none; gap:10px; justify-content:center
@@ -116,18 +116,18 @@
 <script>
 /* ========= tiny utils ========= */
 const $=s=>document.querySelector(s);
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const W=1280,H=720;
 const LS_NAME='rer_name', LS_LB='rer_leaderboard_v1';
 
 /* ========= leaderboard (name+score + CSV) ========= */
 const LB = (()=> {
-  const tBody = $('#lbTable tbody');
+  const tBody = document.createElement('tbody'); // will be replaced on DOMContentLoaded if table exists
   const saveName = () => {
-    const n = ($('#playerName').value||'Runebe').trim().slice(0,12);
+    const inp = document.getElementById('playerName');
+    const n = (inp?.value||'Runebe').trim().slice(0,12);
     localStorage.setItem(LS_NAME,n); return n;
   };
-  const getName = () => (localStorage.getItem(LS_NAME) || $('#playerName').value || 'Runebe').trim().slice(0,12);
+  const getName = () => (localStorage.getItem(LS_NAME) || document.getElementById('playerName')?.value || 'Runebe').trim().slice(0,12);
   const load = ()=>JSON.parse(localStorage.getItem(LS_LB)||'[]');
   const store = arr=>localStorage.setItem(LS_LB,JSON.stringify(arr));
   const add = (score)=>{
@@ -136,11 +136,12 @@ const LB = (()=> {
     store(arr.slice(0,10)); render();
   };
   const render = ()=>{
-    const arr=load(); tBody.innerHTML='';
+    const tableBody = document.querySelector('#lbTable tbody') || tBody;
+    const arr=load(); tableBody.innerHTML='';
     arr.forEach((r,i)=>{
       const tr=document.createElement('tr');
       tr.innerHTML=`<td>${i+1}</td><td>${r.name}</td><td>${r.score}</td><td>${new Date(r.at).toLocaleDateString()}</td>`;
-      tBody.appendChild(tr);
+      tableBody.appendChild(tr);
     });
   };
   const exportCSV=()=>{
@@ -157,12 +158,12 @@ const LB = (()=> {
 const canvas=$('#game'), ctx=canvas.getContext('2d');
 let running=false, paused=false, slow=false;
 let t=0, speed=6, vx=0, x=120, y=H-120, vy=0, onGround=true;
-let hearts=3, score=0, coins=[], hazards=[], combo=0, biomeCoins=0;
+let hearts=3, score=0, coins=[], hazards=[], combo=0, corridorCoins=0;
 let difficulty=0;
 
 function resetRun(){
   speed=6; vx=0; x=120; y=H-120; vy=0; onGround=true;
-  hearts=3; score=0; combo=0; coins=[]; hazards=[]; biomeCoins=0; difficulty=0;
+  hearts=3; score=0; combo=0; coins=[]; hazards=[]; corridorCoins=0; difficulty=0;
 }
 
 /* ========= helpers ========= */
@@ -176,38 +177,29 @@ function roundedRect(ctx,x,y,w,h,r){
   ctx.arcTo(x,y,x+w,y,rr);
   ctx.closePath();
 }
-
-/* Care Coin: kalp/“+” çağrışımlı */
 function drawCareCoin(c){
   const {x,y,r}=c;
-  // alt sarı disk
   ctx.fillStyle='#ffd86b';
   ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-  // beyaz artı
   ctx.fillStyle='#ffffff';
   const s=r*0.5;
   roundedRect(ctx,x-s,y-0.12*r,2*s,0.24*r,4); ctx.fill();
   roundedRect(ctx,x-0.12*r,y-s,0.24*r,2*s,4); ctx.fill();
 }
-
-/* Hastane koridoru */
 function drawCorridorBackground(){
-  const wallTop = '#ffffff', wallBottom = '#f3f6fb', line = 'rgba(31,42,68,.08)';
+  const wallTop = '#ffffff', line = 'rgba(31,42,68,.08)';
   const midY = H*0.55;
 
-  // üst duvar
   const gTop = ctx.createLinearGradient(0,0,0,midY);
   gTop.addColorStop(0,'#ffffff');
   gTop.addColorStop(1,'#f8fbff');
   ctx.fillStyle = gTop; ctx.fillRect(0,0,W,midY);
 
-  // zemin
   const gFloor = ctx.createLinearGradient(0,midY,0,H);
   gFloor.addColorStop(0,'#eef3ff');
   gFloor.addColorStop(1,'#e3ecff');
   ctx.fillStyle = gFloor; ctx.fillRect(0,midY,W,H-midY);
 
-  // perspektif grid
   ctx.strokeStyle = line; ctx.lineWidth=1;
   const vanX = W/2, vanY = midY-80;
   for(let i=0;i<12;i++){
@@ -221,7 +213,6 @@ function drawCorridorBackground(){
     ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
   }
 
-  // kapılar + kol gölgeleri
   const doorW=70, doorH=120;
   ctx.fillStyle='#ffffff';
   for(let i=0;i<4;i++){
@@ -240,7 +231,6 @@ function drawCorridorBackground(){
     }
   }
 
-  // duvar lambaları
   for(let i=0;i<5;i++){
     const lx=((i*260 + (t*50)%260) % (W+160)) - 80;
     const ly= midY-120;
@@ -253,34 +243,31 @@ function drawCorridorBackground(){
   }
 }
 
-/* spawnerlar */
+/* Spawners */
 function spawnCoin(){
   const lanes=[0,60,120];
   coins.push({x:W+40,y:H-120-lanes[Math.floor(Math.random()*lanes.length)],r:12});
 }
 function spawnHazard(){
-  // eğlenceli engeller: spill / panic / paper
   const r = Math.random();
   const baseY = H-100;
-  if (r < 0.4){ // Slippery Spill (zemin)
-    hazards.push({type:'spill', x:W+60, y:baseY, w:60, h:26, vx:speed});
-  } else if (r < 0.7){ // Panic Puff (yüzen bulut)
+  if (r < 0.4){
+    hazards.push({type:'spill', x:W+60, y:baseY, w:60, h:26});
+  } else if (r < 0.7){
     const yy = baseY - 60 - Math.random()*100;
-    hazards.push({type:'panic', x:W+60, y:yy, w:0, h:0, vy:(Math.random()<.5?0.4:-0.4), vx:speed});
-  } else { // Paperwork Pile (blok)
-    hazards.push({type:'paper', x:W+60, y:baseY-40, w:40, h:40, vx:speed});
+    hazards.push({type:'panic', x:W+60, y:yy, vy:(Math.random()<.5?0.4:-0.4)});
+  } else {
+    hazards.push({type:'paper', x:W+60, y:baseY-40, w:40, h:40});
   }
 }
 
-/* fizik & zorluk */
+/* Physics & difficulty */
 function tick(dt){
-  // zorluk zamana + performansa göre artar
   difficulty += dt * 0.06;
   speed = 6 + difficulty*1.2 + Math.min(2, Math.floor(score/200)*0.5);
 
   t += dt*(slow?0.5:1);
 
-  // periyodik spawn
   if (t%1 < dt){
     const coinChance = 0.65 + Math.min(.2, difficulty*0.15);
     const hazardChance = 0.20 + Math.min(.45, difficulty*0.25);
@@ -288,58 +275,49 @@ function tick(dt){
     if (Math.random() < hazardChance) spawnHazard();
   }
 
-  // fizik
   x += vx; vy += 0.9; y += vy;
   if (y>H-120){ y=H-120; vy=0; onGround=true; }
 
-  // hareket
   coins.forEach(c=>c.x -= speed);
   hazards.forEach(h=>{
-    h.x -= speed;
+    h.x = (h.x ?? W) - speed;
     if(h.type==='panic'){
       h.y += h.vy;
       if (h.y < H-220 || h.y > H-80) h.vy *= -1;
     }
   });
 
-  // coin çarpışma
   coins = coins.filter(c=>{
     const dx=(x+20)-c.x, dy=(y+20)-c.y;
     const hit = Math.hypot(dx,dy) < (20+c.r);
-    if (hit){ score += 10*(1+Math.floor(combo/5)); combo++; biomeCoins++; }
+    if (hit){ score += 10*(1+Math.floor(combo/5)); combo++; corridorCoins++; }
     return !hit && c.x>-40;
   });
 
-  // hazard çarpışma
   hazards = hazards.filter(h=>{
     let hit=false;
     if (h.type==='panic'){
       hit = Math.hypot((x+20)-h.x,(y+20)-h.y) < 30;
     } else {
-      hit = (x+20>h.x && x<h.x+h.w && y+40>h.y && y<h.y+h.h);
+      hit = (x+20>h.x && x<h.x+(h.w||0) && y+40>h.y && y<h.y+(h.h||0));
     }
     if (hit){ hearts--; combo=0; }
     return !hit && h.x>-60;
   });
 
-  // ilerleme: her 60 coin küçük hız artışı
-  if (biomeCoins >= 60){ biomeCoins=0; speed += 0.6; }
-
+  if (corridorCoins >= 60){ corridorCoins=0; speed += 0.6; }
   if (hearts<=0) gameOver();
 }
 
-/* çizim */
+/* Drawing */
 function draw(){
   drawCorridorBackground();
 
-  // oyuncu (placeholder pembe kapsül)
   ctx.fillStyle='#ffc9de';
   roundedRect(ctx,x,y,40,40,10); ctx.fill();
 
-  // coins
   coins.forEach(drawCareCoin);
 
-  // hazards
   hazards.forEach(h=>{
     if(h.type==='spill'){
       ctx.fillStyle='#a8d8ff'; roundedRect(ctx,h.x,h.y,h.w,h.h,8); ctx.fill();
@@ -349,25 +327,23 @@ function draw(){
       ctx.beginPath(); ctx.arc(h.x,h.y,22,0,Math.PI*2); ctx.fill();
       ctx.globalAlpha=1;
     }else{
-      ctx.fillStyle:'#d4b5ff';
+      ctx.fillStyle='#d4b5ff';
       roundedRect(ctx,h.x,h.y,h.w,h.h,6); ctx.fill();
       ctx.fillStyle='rgba(31,42,68,.15)'; ctx.fillRect(h.x+6,h.y+6,h.w-12,6);
     }
   });
 
-  // HUD
   ctx.fillStyle='#1f2a44'; ctx.font='18px system-ui';
   ctx.fillText(`Score: ${score}`,20,34);
   ctx.fillText(`Hearts: ${'♥'.repeat(hearts)}`,20,60);
   ctx.fillText(`Corridor Pace: ${(speed).toFixed(1)}x`,20,86);
 
-  // ilerleme çubuğu
-  const need=60, w=220, p=biomeCoins/need;
+  const need=60, w=220, p=corridorCoins/need;
   ctx.strokeStyle='rgba(31,42,68,.2)'; ctx.strokeRect(20,96,w,10);
   ctx.fillStyle='#86e3ce'; ctx.fillRect(20,96,w*p,10);
 }
 
-/* ===== loop / lifecycle ===== */
+/* Loop / lifecycle */
 let last=0;
 function loop(ts){
   if(!running||paused){ last=ts; requestAnimationFrame(loop); return; }
@@ -386,15 +362,15 @@ function gameOver(){
   $('#gameOverPanel').style.display='flex';
 }
 
-/* ===== controls ===== */
+/* Controls */
 const keys={};
 addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='ArrowRight') vx=4;
   if(e.code==='ArrowLeft') vx=-3;
   if(e.code==='Space'){ if(onGround){ vy=-16; onGround=false; } else if(vy>-2){ vy=-14; } }
-  if(e.code==='KeyS'){ vy=8; } // slide-ish
-  if(e.code==='KeyD'){ x+=40; } // dash-ish
+  if(e.code==='KeyS'){ vy=8; }
+  if(e.code==='KeyD'){ x+=40; }
   if(e.code==='KeyP'){ paused=!paused; }
   if(e.code==='KeyL'){ slow=!slow; }
 });
@@ -402,7 +378,8 @@ addEventListener('keyup',e=>{
   keys[e.code]=false;
   if(!keys['ArrowRight'] && !keys['ArrowLeft']) vx=0;
 });
-/* mobile buttons */
+
+/* Mobile buttons */
 const bind=(id,down,up)=>{ const el=$(id); if(!el) return;
   const press=(e)=>{e.preventDefault();down();};
   const release=(e)=>{e.preventDefault();up&&up();};
@@ -415,7 +392,7 @@ bind('#btnJump', ()=>{ if(onGround){vy=-16; onGround=false;} else if(vy>-2){vy=-
 bind('#btnSlide',()=>{ vy=8; });
 bind('#btnDash', ()=>{ x+=40; });
 
-/* ===== UI wires ===== */
+/* UI wires */
 $('#btnStart').onclick=()=>{ LB.saveName(); startGame(); };
 $('#btnShowLeaderboard').onclick=()=>{ LB.render(); $('#leaderboardPanel').style.display='flex'; };
 $('#btnCloseLB').onclick=()=>{ $('#leaderboardPanel').style.display='none'; };
@@ -427,9 +404,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   const n=localStorage.getItem(LS_NAME); if(n) $('#playerName').value=n;
 });
 
-/* ===== start in title ===== */
+/* Start in title */
 $('#titleScreen').style.display='flex';
-draw(); // first frame
+draw();
 </script>
 </body>
 </html>
