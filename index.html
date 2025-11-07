@@ -10,7 +10,7 @@
   #gameWrap{position:relative;width:100%;height:100vh;overflow:hidden}
   canvas{display:block;margin:0 auto;border-radius:18px;box-shadow:var(--shadow);
     background:radial-gradient(1200px 520px at 50% 30%, #ffffff 0%, #eef2fb 70%, #e3ecfa 100%)}
-  /* tek panel */
+  /* TEK PANEL */
   #panel{position:absolute;inset:0;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;
     text-align:center;padding:20px;background:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,.25));backdrop-filter:blur(8px)}
   input,button{padding:12px 16px;border:1px solid var(--stroke);border-radius:14px;background:#fff;font-weight:600}
@@ -32,8 +32,8 @@
       <h1>RUN EBE RUN</h1>
       <h3>Doğumhaneye Ulaş!</h3>
       <p style="max-width:720px">
-        Parlak <b>hastane koridorlarında</b> koş, <b>doğum malzemelerini</b> topla, engellerden kaç.
-        <br><b>Kaygan Döküntü</b>, <b>Panik Bulutu</b> ve <b>Evrak Yığını</b> seni yavaşlatabilir!
+        Parlak <b>hastane koridorlarında</b> koş, <b>doğum malzemelerini</b> topla, eğlenceli engellerden sıyrıl!<br>
+        Dikkat: <b>Kaygan Leke</b> (zeminde pıtır pıtır kaydırır), <b>Panik Pufu</b> (uçuşan telaş bulutu) ve <b>Evrak Canavarı</b> (kule gibi dosya yığını)!
       </p>
       <label for="ad">Oyuncu Adı</label>
       <input id="ad" maxlength="12" placeholder="Runebe"/>
@@ -49,9 +49,9 @@
     <div id="howto" style="display:none;max-width:760px;text-align:left">
       <h3>Nasıl Oynanır?</h3>
       <ul>
-        <li>Malzemeler: Doğum Seti (+30), Şırınga (+18), Kordon Makası (+20), Bebek Bezi (+12), Önlük (+14), Eldiven (+10), Maske (+12)</li>
-        <li>Engeller: Kaygan Döküntü, Panik Bulutu, Evrak Yığını</li>
-        <li>Her 60 malzeme hız artar. 3 canın var. İyi şanslar!</li>
+        <li>Toplanacaklar: <b>Doğum Seti (+30)</b>, <b>Şırınga (+18)</b>, <b>Kordon Makası (+20)</b>, <b>Bebek Bezi (+12)</b>, <b>Önlük (+14)</b>, <b>Eldiven (+10)</b>, <b>Maske (+12)</b></li>
+        <li>Engeller: <b>Kaygan Leke</b>, <b>Panik Pufu</b>, <b>Evrak Canavarı</b></li>
+        <li>Her 60 malzemede hızlanırsın. 3 canın var. Hadi doğumhaneye!</li>
       </ul>
       <button id="kapatHow">Kapat</button>
     </div>
@@ -83,7 +83,7 @@
 </div>
 
 <script>
-/* ========= kısayollar ========= */
+/* ========= kısa yardımcılar ========= */
 const $=s=>document.querySelector(s);
 const W=1280,H=720;
 const LS_NAME='rer_tr_name', LS_LB='rer_tr_lb';
@@ -158,20 +158,26 @@ const MALZ=[
 function rr(x,y,w,h,r){const q=Math.min(r,w/2,h/2);ctx.beginPath();
   ctx.moveTo(x+q,y);ctx.arcTo(x+w,y,x+w,y+h,q);ctx.arcTo(x+w,y+h,x,y+h,q);
   ctx.arcTo(x,y+h,x,y,q);ctx.arcTo(x,y,x+w,y,q);ctx.closePath();}
+
 function cizKoridor(){
   const mid=H*0.58, vanX=W/2, vanY=mid-90;
   const gTop=ctx.createLinearGradient(0,0,0,mid); gTop.addColorStop(0,'#fefefe'); gTop.addColorStop(1,'#f2f6ff');
   ctx.fillStyle=gTop; ctx.fillRect(0,0,W,mid);
   const gFl=ctx.createLinearGradient(0,mid,0,H); gFl.addColorStop(0,'#dde4f7'); gFl.addColorStop(1,'#c9d4f1');
   ctx.fillStyle=gFl; ctx.fillRect(0,mid,W,H-mid);
+
+  /* Temple-Run hissi: yan raylar + akan şeritler */
   ctx.strokeStyle='rgba(31,42,68,.25)'; ctx.lineWidth=3;
   ctx.beginPath(); ctx.moveTo(vanX-120,vanY); ctx.lineTo(0,H); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(vanX+120,vanY); ctx.lineTo(W,H); ctx.stroke();
+
   ctx.strokeStyle='rgba(31,42,68,.15)'; ctx.lineWidth=2;
   for(let y=mid+18,st=20;y<H;y+=st,st*=1.08){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();}
   ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=4;
   for(let i=0;i<6;i++){ const ofs=(i*200 + (t*220)%200); const y=H-(40+ofs);
     ctx.beginPath(); ctx.moveTo(W*0.25,y); ctx.lineTo(W*0.75,y); ctx.stroke();}
+
+  /* kapılar + ışıklar */
   const doorW=60,doorH=110; ctx.fillStyle='#fff';
   for(let i=0;i<3;i++){ const o=(i*320+(t*140)%320), yy=mid-35;
     let xR=W-40-o; if(xR>-doorW&&xR<W){ rr(xR,yy,doorW,doorH,10); ctx.fill();
@@ -184,32 +190,56 @@ function cizKoridor(){
     glow.addColorStop(0,'rgba(255,255,255,.35)'); glow.addColorStop(1,'rgba(255,255,255,0)');
     ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(lx+33,ly+7,95,0,Math.PI*2); ctx.fill(); }
 }
+
 function cizAltinHalo(x,y,r){ const rg=ctx.createRadialGradient(x,y,r*0.2,x,y,r);
   rg.addColorStop(0,'rgba(255,255,255,.35)'); rg.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+
 function cizMalzeme(m){
   ctx.save(); ctx.translate(m.x,m.y); ctx.lineWidth=3;
-  if(m.tur==='Doğum Seti'){ ctx.fillStyle:m.col; rr(-16,-12,32,24,6); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.8)'; rr(-10,-4,20,8,3); ctx.fill(); }
-  else if(m.tur==='Şırınga'){ ctx.strokeStyle=m.c; ctx.lineWidth=2.5;
-    rr(-10,-6,20,12,3); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-12,0); ctx.lineTo(-18,0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(20,0); ctx.stroke();}
-  else if(m.tur==='Kordon Makası'){ ctx.strokeStyle=m.c; ctx.lineWidth=3;
+
+  if(m.tur==='Doğum Seti'){
+    ctx.fillStyle = m.c; rr(-16,-12,32,24,6); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; rr(-10,-4,20,8,3); ctx.fill();
+  }
+  else if(m.tur==='Şırınga'){
+    ctx.strokeStyle = m.c; ctx.lineWidth=2.5;
+    rr(-10,-6,20,12,3); ctx.stroke();              /* gövde */
+    ctx.beginPath(); ctx.moveTo(-12,0); ctx.lineTo(-18,0); ctx.stroke(); /* piston */
+    ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(20,0); ctx.stroke();   /* iğne */
+  }
+  else if(m.tur==='Kordon Makası'){
+    ctx.strokeStyle = m.c; ctx.lineWidth=3;
     ctx.beginPath(); ctx.arc(-6,0,6,0,Math.PI*2); ctx.arc(8,0,6,0,Math.PI*2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-2,0); ctx.lineTo(14,-10); ctx.stroke(); }
-  else if(m.tur==='Bebek Bezi'){ ctx.fillStyle=m.c; rr(-14,-10,28,20,8); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.7)'; rr(-10,-6,20,12,6); ctx.fill(); }
-  else if(m.tur==='Önlük'){ ctx.fillStyle=m.c; rr(-12,-6,24,20,6); ctx.fill();
-    ctx.fillStyle='#fff'; rr(-6,-2,12,8,3); ctx.fill();}
-  else if(m.tur==='Eldiven'){ ctx.fillStyle=m.c; rr(-12,-10,24,20,8); ctx.fill(); ctx.fillRect(2,-14,6,10); }
-  else if(m.tur==='Maske'){ ctx.fillStyle=m.c; rr(-14,-6,28,12,6); ctx.fill();
-    ctx.strokeStyle=m.c; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(-14,-2); ctx.lineTo(-20,-4); ctx.moveTo(-14,2); ctx.lineTo(-20,4);
-    ctx.moveTo(14,-2);  ctx.lineTo(20,-4); ctx.moveTo(14,2);  ctx.lineTo(20,4); ctx.stroke(); }
-  ctx.globalAlpha=.35; ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(-8,-10,14,6,-0.5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-2,0); ctx.lineTo(14,-10); ctx.stroke();
+  }
+  else if(m.tur==='Bebek Bezi'){
+    ctx.fillStyle = m.c; rr(-14,-10,28,20,8); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; rr(-10,-6,20,12,6); ctx.fill();
+  }
+  else if(m.tur==='Önlük'){
+    ctx.fillStyle = m.c; rr(-12,-6,24,20,6); ctx.fill();
+    ctx.fillStyle = '#fff'; rr(-6,-2,12,8,3); ctx.fill();
+  }
+  else if(m.tur==='Eldiven'){
+    ctx.fillStyle = m.c; rr(-12,-10,24,20,8); ctx.fill(); ctx.fillRect(2,-14,6,10);
+  }
+  else if(m.tur==='Maske'){
+    ctx.fillStyle = m.c; rr(-14,-6,28,12,6); ctx.fill();
+    ctx.strokeStyle = m.c; ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(-14,-2); ctx.lineTo(-20,-4); ctx.moveTo(-14,2); ctx.lineTo(-20,4);
+    ctx.moveTo(14,-2);  ctx.lineTo(20,-4); ctx.moveTo(14,2);  ctx.lineTo(20,4);
+    ctx.stroke();
+  }
+
+  /* yumuşak parlama */
+  ctx.globalAlpha=.35; ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.ellipse(-8,-10,14,6,-0.5,0,Math.PI*2); ctx.fill();
   ctx.globalAlpha=1; ctx.restore();
 }
-function cizKarakter(){ // saç animasyonlu
+
+function cizKarakter(){ /* saç animasyonlu */
   ctx.fillStyle='#ffc9de'; rr(x,y,40,40,10); ctx.fill();
   const hx=x+20, hy=y-8;
   ctx.fillStyle='#ffd9e6'; ctx.beginPath(); ctx.arc(hx,hy,14,0,Math.PI*2); ctx.fill();
@@ -219,32 +249,57 @@ function cizKarakter(){ // saç animasyonlu
 }
 
 /* ========= Spawn ========= */
-function spawnMalz(){ const lanes=[0,60,120], m=MALZ[Math.floor(Math.random()*MALZ.length)];
-  malzemeler.push({tur:m.tur, puan:m.puan, c:m.c, x:W+40, y:H-120-lanes[Math.floor(Math.random()*lanes.length)]}); }
-function spawnEngel(){ const baseY=H-100, r=Math.random();
-  if(r<0.4) engeller.push({tip:'spill',x:W+60,y:baseY,w:60,h:26});
-  else if(r<0.7){ const yy=baseY-60-Math.random()*100; engeller.push({tip:'panic',x:W+60,y:yy,vy:(Math.random()<.5?0.4:-0.4)}); }
-  else engeller.push({tip:'paper',x:W+60,y:baseY-40,w:40,h:40}); }
+function spawnMalz(){
+  const lanes=[0,60,120], m=MALZ[Math.floor(Math.random()*MALZ.length)];
+  malzemeler.push({tur:m.tur, puan:m.puan, c:m.c, x:W+40, y:H-120-lanes[Math.floor(Math.random()*lanes.length)]});
+}
+function spawnEngel(){
+  const baseY=H-100, r=Math.random();
+  if(r<0.4) engeller.push({tip:'leke',x:W+60,y:baseY,w:60,h:26});               /* Kaygan Leke */
+  else if(r<0.7){ const yy=baseY-60-Math.random()*100;                           /* Panik Pufu */
+    engeller.push({tip:'pufu',x:W+60,y:yy,vy:(Math.random()<.5?0.4:-0.4)}); }
+  else engeller.push({tip:'evrak',x:W+60,y:baseY-40,w:40,h:40});                 /* Evrak Canavarı */
+}
 
 /* ========= Döngü ========= */
-function reset(){ hiz=6; vx=0; x=120; y=H-120; vy=0; yerde=true;
-  can=3; puan=0; combo=0; ilerleme=0; zorluk=0; malzemeler=[]; engeller=[]; efekts=[]; }
+function reset(){
+  hiz=6; vx=0; x=120; y=H-120; vy=0; yerde=true;
+  can=3; puan=0; combo=0; ilerleme=0; zorluk=0;
+  malzemeler=[]; engeller=[]; efekts=[];
+}
 function tick(dt){
   zorluk += dt*0.06; hiz = 6 + zorluk*1.2 + Math.min(2, Math.floor(puan/200)*0.5); t += dt;
-  if (t%1 < dt){ const mc=0.65+Math.min(.2,zorluk*0.15), ec=0.2+Math.min(.45,zorluk*0.25);
-    if(Math.random()<mc) spawnMalz(); if(Math.random()<ec) spawnEngel(); }
+
+  if (t%1 < dt){
+    const mc=0.65+Math.min(.2,zorluk*0.15), ec=0.2+Math.min(.45,zorluk*0.25);
+    if(Math.random()<mc) spawnMalz();
+    if(Math.random()<ec) spawnEngel();
+  }
+
   x += vx; vy += 0.9; y += vy; if(y>H-120){ y=H-120; vy=0; yerde=true; }
-  malzemeler.forEach(c=>c.x-=hiz); engeller.forEach(h=>{ h.x-=hiz; if(h.tip==='panic'){ h.y+=h.vy; if(h.y<H-220||h.y>H-80) h.vy*=-1; }});
+
+  malzemeler.forEach(c=>c.x-=hiz);
+  engeller.forEach(h=>{ h.x-=hiz;
+    if(h.tip==='pufu'){ h.y+=h.vy; if(h.y<H-220||h.y>H-80) h.vy*=-1; }});
+
   efekts=efekts.filter(e=> (e.t+=dt) < 1);
-  // toplama
-  malzemeler = malzemeler.filter(c=>{ const hit=Math.hypot((x+20)-c.x,(y+20)-c.y) < 26;
+
+  /* toplama */
+  malzemeler = malzemeler.filter(c=>{
+    const hit=Math.hypot((x+20)-c.x,(y+20)-c.y) < 26;
     if(hit){ puan += c.puan*(1+Math.floor(combo/5)); combo++; ilerleme++; efekts.push({x:c.x,y:c.y,txt:`+${c.puan} ${c.tur}`,t:0}); }
-    return !hit && c.x>-40; });
-  // engel
-  engeller = engeller.filter(h=>{ let hit=false;
-    if(h.tip==='panic') hit=Math.hypot((x+20)-h.x,(y+20)-h.y)<30;
+    return !hit && c.x>-40;
+  });
+
+  /* engel çarpışma */
+  engeller = engeller.filter(h=>{
+    let hit=false;
+    if(h.tip==='pufu') hit=Math.hypot((x+20)-h.x,(y+20)-h.y)<30;
     else hit=(x+20>h.x && x<h.x+(h.w||0) && y+40>h.y && y<h.y+(h.h||0));
-    if(hit){ can--; combo=0; } return !hit && h.x>-60; });
+    if(hit){ can--; combo=0; }
+    return !hit && h.x>-60;
+  });
+
   if(ilerleme>=60){ ilerleme=0; hiz+=0.6; }
   if(can<=0) gameOver();
 }
@@ -252,29 +307,45 @@ function draw(){
   cizKoridor();
   malzemeler.forEach(c=>{ cizMalzeme({x:c.x,y:c.y,tur:c.tur,c:c.c}); cizAltinHalo(c.x,c.y,18); });
   engeller.forEach(h=>{
-    if(h.tip==='spill'){ ctx.fillStyle='#a8d8ff'; rr(h.x,h.y,h.w,h.h,8); ctx.fill();
-      ctx.globalAlpha=.25; ctx.fillStyle='#fff'; rr(h.x+6,h.y+5,h.w-12,h.h-10,8); ctx.fill(); ctx.globalAlpha=1; }
-    else if(h.tip==='panic'){ ctx.globalAlpha=.75; ctx.fillStyle='#ffd3b6'; ctx.beginPath(); ctx.arc(h.x,h.y,22,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
-    else { ctx.fillStyle='#d4b5ff'; rr(h.x,h.y,h.w,h.h,6); ctx.fill(); ctx.fillStyle='rgba(31,42,68,.15)'; ctx.fillRect(h.x+6,h.y+6,h.w-12,6); }
+    if(h.tip==='leke'){ /* Kaygan Leke */
+      ctx.fillStyle='#a8d8ff'; rr(h.x,h.y,h.w,h.h,8); ctx.fill();
+      ctx.globalAlpha=.25; ctx.fillStyle='#fff'; rr(h.x+6,h.y+5,h.w-12,h.h-10,8); ctx.fill(); ctx.globalAlpha=1;
+    } else if(h.tip==='pufu'){ /* Panik Pufu */
+      ctx.globalAlpha=.75; ctx.fillStyle='#ffd3b6'; ctx.beginPath(); ctx.arc(h.x,h.y,22,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+    } else { /* Evrak Canavarı */
+      ctx.fillStyle='#d4b5ff'; rr(h.x,h.y,h.w,h.h,6); ctx.fill();
+      ctx.fillStyle='rgba(31,42,68,.15)'; ctx.fillRect(h.x+6,h.y+6,h.w-12,6);
+    }
   });
   cizKarakter();
   ctx.font='16px system-ui'; ctx.textAlign='left';
-  efekts.forEach(e=>{ ctx.globalAlpha=1-e.t; ctx.fillStyle='#1f2a44'; ctx.fillText(e.txt,e.x+12,e.y-8-e.t*20); ctx.globalAlpha=1; });
+  efekts.forEach(e=>{ ctx.globalAlpha=1-e.t; ctx.fillStyle='#1f2a44';
+    ctx.fillText(e.txt,e.x+12,e.y-8-e.t*20); ctx.globalAlpha=1; });
+
   ctx.fillStyle='#1f2a44'; ctx.textAlign='left'; ctx.font='18px system-ui';
   ctx.fillText(`Puan: ${puan}`,20,34); ctx.fillText(`Can: ${'♥'.repeat(can)}`,20,60); ctx.fillText(`Koridor Hızı: ${hiz.toFixed(1)}x`,20,86);
-  const w=220,p=ilerleme/60; ctx.strokeStyle='rgba(31,42,68,.2)'; ctx.strokeRect(20,96,w,10); ctx.fillStyle='#86e3ce'; ctx.fillRect(20,96,w*p,10);
+  const w=220,p=ilerleme/60; ctx.strokeStyle='rgba(31,42,68,.2)'; ctx.strokeRect(20,96,w,10);
+  ctx.fillStyle='#86e3ce'; ctx.fillRect(20,96,w*p,10);
 }
 function loop(ts){ if(!calisiyor||durak){ last=ts; requestAnimationFrame(loop); return; }
   const dt=Math.min(0.033,(ts-last)/1000||0.016); last=ts; tick(dt); draw(); requestAnimationFrame(loop); }
 
 /* ========= Yaşam Döngüsü & UI ========= */
-function start(){ $('#panel').style.display='none'; calisiyor=true; durak=false; reset();
-  if(Muzik) Muzik.start(); last=performance.now(); requestAnimationFrame(loop); }
-function gameOver(){ calisiyor=false; if(Muzik) Muzik.stop();
+function start(){
+  $('#panel').style.display='none';
+  calisiyor=true; durak=false; reset();
+  if(Muzik) Muzik.start();
+  last=performance.now(); requestAnimationFrame(loop);
+}
+function gameOver(){
+  calisiyor=false;
+  if(Muzik) Muzik.stop();
   $('#sonPuan').textContent='Puan: '+puan; LB.add(puan);
   $('#titleArea').style.display='none'; $('#howto').style.display='none'; $('#lbArea').style.display='none';
-  $('#overArea').style.display='block'; $('#panel').style.display='flex'; }
+  $('#overArea').style.display='block'; $('#panel').style.display='flex';
+}
 
+/* kontroller */
 const tus={};
 addEventListener('keydown',e=>{
   tus[e.code]=true;
@@ -301,6 +372,7 @@ bind('#dash',()=>{ x+=40; });
 
 document.addEventListener('DOMContentLoaded',()=>{
   const n=localStorage.getItem(LS_NAME); if(n) $('#ad').value=n;
+
   $('#basla').onclick=()=>start();
   $('#muzik').onclick=()=>{ if(Muzik) Muzik.toggleMute(); };
   $('#lider').onclick=()=>{ LB.render(); $('#titleArea').style.display='none'; $('#lbArea').style.display='block'; };
@@ -309,8 +381,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('#kapatHow').onclick=()=>{ $('#howto').style.display='none'; $('#titleArea').style.display='block'; };
   $('#yeniden').onclick=()=>start();
   $('#baslangic').onclick=()=>{ $('#overArea').style.display='none'; $('#lbArea').style.display='none'; $('#howto').style.display='none'; $('#titleArea').style.display='block'; };
-  // ilk çizim
-  draw();
+
+  draw(); /* ilk çizim */
 });
 </script>
 </body>
