@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RUN EBE RUN</title>
+<style>
+  html,body{margin:0;height:100%;background:#0c1020;color:#fff;font-family:system-ui,Segoe UI,Arial}
+  #gameWrap{position:relative;width:100%;height:100vh;overflow:hidden}
+  canvas{display:block;margin:0 auto;background:linear-gradient(#0e1733,#0a0f26)}
+  /* Panels */
+  #titleScreen,#leaderboardPanel,#gameOverPanel{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;
+    background:rgba(0,0,0,.45);gap:10px;padding:16px
+  }
+  #leaderboardPanel,#gameOverPanel{display:none}
+  input,button{padding:10px 14px;border:0;border-radius:8px}
+  input{min-width:220px}
+  button{cursor:pointer}
+  table{background:#0b132b}
+  td,th{padding:6px 10px}
+  /* Mobile controls (auto-hide on desktop) */
+  #mobilePad{position:absolute;inset:auto 0 12px 0;display:none;gap:10px;justify-content:center}
+  .pad{padding:12px 14px;border-radius:10px;background:#283046}
+  @media (pointer:coarse){#mobilePad{display:flex}}
+</style>
+</head>
+<body>
+<div id="gameWrap">
+  <canvas id="game" width="1280" height="720"></canvas>
+
+  <!-- START -->
+  <div id="titleScreen">
+    <h1>RUN EBE RUN</h1>
+    <p>Restore the Life Light by collecting <b>Birth Boost Coins</b>.<br/>Avoid Time Pressure, Anxiety Fog and Ignorance Walls.</p>
+    <label for="playerName">Player Name</label>
+    <input id="playerName" maxlength="12" placeholder="Runebe"/>
+    <div>
+      <button id="btnStart">Start</button>
+      <button id="btnShowLeaderboard">Leaderboard</button>
+    </div>
+    <small>Desktop: ← → move, Space jump (×2), S slide, D dash, P pause, L slow-mode</small>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div id="leaderboardPanel">
+    <h2>Leaderboard (Top 10)</h2>
+    <table id="lbTable"><thead><tr><th>#</th><th>Name</th><th>Score</th><th>Date</th></tr></thead><tbody></tbody></table>
+    <div>
+      <button id="btnExportCSV">Export CSV</button>
+      <button id="btnCloseLB">Close</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameOverPanel">
+    <h2>Game Over</h2>
+    <p id="finalScoreText">Score: 0</p>
+    <div>
+      <button id="btnRestart">Restart</button>
+      <button id="btnGoTitle">Title</button>
+    </div>
+  </div>
+
+  <!-- Mobile pad -->
+  <div id="mobilePad">
+    <button class="pad" id="btnLeft">◀</button>
+    <button class="pad" id="btnRight">▶</button>
+    <button class="pad" id="btnJump">⤒</button>
+    <button class="pad" id="btnSlide">—</button>
+    <button class="pad" id="btnDash">⚡</button>
+  </div>
+</div>
+
+<script>
+/* ========= tiny utils ========= */
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const W=1280,H=720;
+const LS_NAME='rer_name', LS_LB='rer_leaderboard_v1';
+/* ========= leaderboard ========= */
+const LB = (()=> {
+  const tBody = $('#lbTable tbody');
+  const saveName = () => {
+    const n = ($('#playerName').value||'Runebe').trim().slice(0,12);
+    localStorage.setItem(LS_NAME,n); return n;
+  };
+  const getName = () => (localStorage.getItem(LS_NAME) || $('#playerName').value || 'Runebe').trim().slice(0,12);
+  const load = ()=>JSON.parse(localStorage.getItem(LS_LB)||'[]');
+  const store = arr=>localStorage.setItem(LS_LB,JSON.stringify(arr));
+  const add = (score)=>{
+    const arr=load(); arr.push({name:saveName(),score,at:new Date().toISOString()});
+    arr.sort((a,b)=>b.score-a.score); store(arr.slice(0,10)); render();
+  };
+  const render = ()=>{
+    const arr=load(); tBody.innerHTML='';
+    arr.forEach((r,i)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${i+1}</td><td>${r.name}</td><td>${r.score}</td><td>${new Date(r.at).toLocaleDateString()}</td>`;
+      tBody.appendChild(tr);
+    });
+  };
+  const exportCSV=()=>{
+    const arr=load(); const head='rank,name,score,date\n';
+    const lines=arr.map((r,i)=>`${i+1},"${r.name.replace(/"/g,'""')}",${r.score},${r.at}`);
+    const blob=new Blob([head+lines.join('\n')],{type:'text/csv'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='runebe_leaderboard.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  };
+  return {saveName,getName,add,render,exportCSV};
+})();
+/* ========= game state (placeholder runner) ========= */
+const canvas=$('#game'), ctx=canvas.getContext('2d');
+let running=false, paused=false, slow=false;
+let t=0, speed=6, vx=0, x=100, y=H-120, vy=0, onGround=true;
+let hearts=3, score=0, coins=[], hazards=[], combo=0, biome=0, biomeCoins=0;
+const biomes=['Preparation Valley','Contraction Forest','Birth Tunnel','Mother’s Heart Bridge','Life Garden'];
+
+function resetRun(){
+  speed=6; vx=0; x=120; y=H-120; vy=0; onGround=true;
+  hearts=3; score=0; combo=0; coins=[]; hazards=[]; biome=0; biomeCoins=0;
+}
+
+function spawnCoin(){ coins.push({x:W+40,y:H-120-[0,60,120][Math.floor(Math.random()*3)],r:12}); }
+function spawnHazard(){ // simple block
+  hazards.push({x:W+60,y:H-100,w:40,h:40,type:'wall'});
+}
+function tick(dt){
+  t+=dt*(slow?0.5:1);
+  // difficulty
+  if (t%1<dt) { // periodic spawns
+    if (Math.random()<0.6) spawnCoin();
+    if (Math.random()<0.25) spawnHazard();
+  }
+  // physics
+  x+=vx; vy+=0.9; y+=vy; if (y>H-120){ y=H-120; vy=0; onGround=true; }
+  coins.forEach(c=>c.x-=speed); hazards.forEach(h=>h.x-=speed);
+  coins=coins.filter(c=>{
+    const dx=(x+20)-c.x, dy=(y+20)-c.y;
+    const hit = Math.hypot(dx,dy)<(20+c.r);
+    if (hit){ score+=10*(1+Math.floor(combo/5)); combo++; biomeCoins++; if (biomeCoins>=60 && biome<4){ biome++; biomeCoins=0; speed+=1; } }
+    return !hit && c.x>-40;
+  });
+  hazards=hazards.filter(h=>{
+    const hit = (x+20>h.x && x<h.x+h.w && y+40>h.y && y<h.y+h.h);
+    if (hit){ hearts--; combo=0; }
+    return !hit && h.x>-60;
+  });
+  if (hearts<=0) gameOver();
+}
+function draw(){
+  // bg by biome
+  const cols=['#122039','#15244a','#1a2758','#1c2e63','#21346d'];
+  ctx.fillStyle=cols[biome]; ctx.fillRect(0,0,W,H);
+  // ground line
+  ctx.fillStyle='#2f3c7e'; ctx.fillRect(0,H-80,W,6);
+  // player
+  ctx.fillStyle='#ffd1dc'; ctx.fillRect(x,y,40,40); // placeholder rect as character
+  // coins
+  ctx.fillStyle='#ffd66b'; coins.forEach(c=>{ctx.beginPath();ctx.arc(c.x,c.y,c.r,0,Math.PI*2);ctx.fill();});
+  // hazards
+  ctx.fillStyle='#ff6b6b'; hazards.forEach(h=>ctx.fillRect(h.x,h.y,h.w,h.h));
+  // HUD
+  ctx.fillStyle='#fff'; ctx.font='20px system-ui';
+  ctx.fillText(`Score: ${score}`,20,34);
+  ctx.fillText(`Hearts: ${'♥'.repeat(hearts)}`,20,60);
+  ctx.fillText(`Biome: ${biomes[biome]}`,20,86);
+  // progress bar for biome coin gate
+  const need=60, w=220, p=biomeCoins/need;
+  ctx.strokeStyle='#fff'; ctx.strokeRect(20,96,w,10);
+  ctx.fillStyle='#7ad3ff'; ctx.fillRect(20,96,w*p,10);
+}
+let last=0;
+function loop(ts){
+  if(!running||paused){ last=ts; requestAnimationFrame(loop); return; }
+  const dt=Math.min(0.033,(ts-last)/1000||0.016);
+  last=ts; tick(dt); draw(); requestAnimationFrame(loop);
+}
+function startGame(){
+  $('#titleScreen').style.display='none';
+  $('#gameOverPanel').style.display='none';
+  running=true; paused=false; slow=false; resetRun(); last=performance.now(); requestAnimationFrame(loop);
+}
+function gameOver(){
+  running=false;
+  $('#finalScoreText').textContent='Score: '+score;
+  LB.add(score);
+  $('#gameOverPanel').style.display='flex';
+}
+/* ===== controls ===== */
+const keys={};
+addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(e.code==='ArrowRight') vx=4;
+  if(e.code==='ArrowLeft') vx=-3;
+  if(e.code==='Space'){ if(onGround){ vy=-16; onGround=false; } else if(vy>-2){ vy=-14; } }
+  if(e.code==='KeyS'){ vy=8; } // slide-ish
+  if(e.code==='KeyD'){ x+=40; } // dash-ish
+  if(e.code==='KeyP'){ paused=!paused; }
+  if(e.code==='KeyL'){ slow=!slow; }
+});
+addEventListener('keyup',e=>{
+  keys[e.code]=false;
+  if(!keys['ArrowRight'] && !keys['ArrowLeft']) vx=0;
+});
+/* mobile buttons */
+const bind=(id,down,up)=>{ const el=$(id); if(!el) return;
+  const press=(e)=>{e.preventDefault();down();};
+  const release=(e)=>{e.preventDefault();up&&up();};
+  el.addEventListener('touchstart',press); el.addEventListener('touchend',release);
+  el.addEventListener('mousedown',press); el.addEventListener('mouseup',release);
+};
+bind('#btnLeft', ()=>{vx=-3;}, ()=>{ if(!keys['ArrowRight']) vx=0; });
+bind('#btnRight',()=>{vx= 4;}, ()=>{ if(!keys['ArrowLeft']) vx=0; });
+bind('#btnJump', ()=>{ if(onGround){vy=-16; onGround=false;} else if(vy>-2){vy=-14;} });
+bind('#btnSlide',()=>{ vy=8; });
+bind('#btnDash', ()=>{ x+=40; });
+
+/* ===== UI wires ===== */
+$('#btnStart').onclick=()=>{ LB.saveName(); startGame(); };
+$('#btnShowLeaderboard').onclick=()=>{ LB.render(); $('#leaderboardPanel').style.display='flex'; };
+$('#btnCloseLB').onclick=()=>{ $('#leaderboardPanel').style.display='none'; };
+$('#btnExportCSV').onclick=()=>LB.exportCSV();
+$('#btnRestart').onclick=()=>startGame();
+$('#btnGoTitle').onclick=()=>{ $('#gameOverPanel').style.display='none'; $('#titleScreen').style.display='flex'; };
+document.addEventListener('DOMContentLoaded',()=>{ const n=localStorage.getItem(LS_NAME); if(n) $('#playerName').value=n; });
+/* ===== start in title ===== */
+$('#titleScreen').style.display='flex';
+draw(); // show first frame
+</script>
+</body>
+</html>
