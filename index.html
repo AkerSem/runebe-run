@@ -5,25 +5,60 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>RUN EBE RUN</title>
 <style>
-  html,body{margin:0;height:100%;background:#0c1020;color:#fff;font-family:system-ui,Segoe UI,Arial}
-  #gameWrap{position:relative;width:100%;height:100vh;overflow:hidden}
-  canvas{display:block;margin:0 auto;background:linear-gradient(#0e1733,#0a0f26)}
-  /* Panels */
-  #titleScreen,#leaderboardPanel,#gameOverPanel{
-    position:absolute;inset:0;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;text-align:center;
-    background:rgba(0,0,0,.45);gap:10px;padding:16px
+  :root{
+    --bg-0:#f5f7fb;
+    --ink:#1f2a44;
+    --mint:#86e3ce;
+    --peach:#ffd3b6;
+    --lilac:#d4b5ff;
+    --sky:#a8d8ff;
+    --rose:#ffb3c1;
+    --shadow: 0 10px 30px rgba(31,42,68,.18);
+    --stroke: rgba(31,42,68,.08);
   }
-  #leaderboardPanel,#gameOverPanel{display:none}
-  input,button{padding:10px 14px;border:0;border-radius:8px}
-  input{min-width:220px}
-  button{cursor:pointer}
-  table{background:#0b132b}
-  td,th{padding:6px 10px}
-  /* Mobile controls (auto-hide on desktop) */
-  #mobilePad{position:absolute;inset:auto 0 12px 0;display:none;gap:10px;justify-content:center}
-  .pad{padding:12px 14px;border-radius:10px;background:#283046}
-  @media (pointer:coarse){#mobilePad{display:flex}}
+  html,body{margin:0;height:100%;background:var(--bg-0);color:var(--ink);
+    font-family: ui-rounded, system-ui, "Segoe UI", Roboto, Arial, sans-serif;}
+  #gameWrap{position:relative;width:100%;height:100vh;overflow:hidden}
+
+  canvas{
+    display:block;margin:0 auto;border-radius:18px;
+    box-shadow:var(--shadow); background:#ffffff;
+  }
+
+  /* Cam görünümlü paneller */
+  #titleScreen,#leaderboardPanel,#gameOverPanel{
+    position:absolute; inset:0; display:flex; flex-direction:column; gap:12px;
+    align-items:center; justify-content:center; text-align:center;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.25));
+    padding:20px; color:var(--ink);
+  }
+  #leaderboardPanel,#gameOverPanel{ display:none; }
+  #titleScreen h1{font-size:42px; letter-spacing:.5px; margin:0 0 6px}
+  #titleScreen p{opacity:.9; margin:0 0 6px}
+
+  input,button{
+    padding:12px 16px; border:1px solid var(--stroke);
+    border-radius:14px; font-weight:600; background:#fff;
+  }
+  input{ min-width:240px; }
+  button{ cursor:pointer; transition:.2s box-shadow,.2s transform }
+  button:hover{ box-shadow:var(--shadow); transform: translateY(-1px) }
+  #btnStart{ background: linear-gradient(90deg,var(--mint),var(--sky)); border:0; color:#103; }
+  #btnShowLeaderboard{ background: linear-gradient(90deg,var(--peach),var(--rose)); border:0; color:#103; }
+  #btnExportCSV{ background:linear-gradient(90deg,#fff,var(--mint)); }
+
+  table{background:#fff; border-radius:14px; overflow:hidden; box-shadow:var(--shadow)}
+  td,th{padding:10px 14px; border-bottom:1px solid var(--stroke)}
+  th{background:#f7f9ff}
+
+  /* Mobil pad */
+  #mobilePad{
+    position:absolute; left:0; right:0; bottom:14px;
+    display:none; gap:10px; justify-content:center
+  }
+  .pad{ padding:14px 16px; border-radius:16px; background:#fff; border:1px solid var(--stroke) }
+  @media (pointer:coarse){ #mobilePad{ display:flex } }
 </style>
 </head>
 <body>
@@ -33,14 +68,19 @@
   <!-- START -->
   <div id="titleScreen">
     <h1>RUN EBE RUN</h1>
-    <p>Restore the Life Light by collecting <b>Birth Boost Coins</b>.<br/>Avoid Time Pressure, Anxiety Fog and Ignorance Walls.</p>
+    <p style="max-width:660px">
+      Sprint through a bright hospital corridor, collect <b>Care Coins</b>, and keep the rhythm of birth!<br>
+      Watch out for <b>Slippery Spills</b>, <b>Panic Puffs</b>, and towering <b>Paperwork Piles</b> — stay calm, stay caring, keep moving!
+    </p>
     <label for="playerName">Player Name</label>
     <input id="playerName" maxlength="12" placeholder="Runebe"/>
     <div>
       <button id="btnStart">Start</button>
       <button id="btnShowLeaderboard">Leaderboard</button>
     </div>
-    <small>Desktop: ← → move, Space jump (×2), S slide, D dash, P pause, L slow-mode</small>
+    <small style="opacity:.75">
+      Desktop: ← → move · Space jump (×2) · S slide · D dash · P pause · L slow-mode
+    </small>
   </div>
 
   <!-- LEADERBOARD -->
@@ -79,7 +119,8 @@ const $=s=>document.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const W=1280,H=720;
 const LS_NAME='rer_name', LS_LB='rer_leaderboard_v1';
-/* ========= leaderboard ========= */
+
+/* ========= leaderboard (name+score + CSV) ========= */
 const LB = (()=> {
   const tBody = $('#lbTable tbody');
   const saveName = () => {
@@ -91,7 +132,8 @@ const LB = (()=> {
   const store = arr=>localStorage.setItem(LS_LB,JSON.stringify(arr));
   const add = (score)=>{
     const arr=load(); arr.push({name:saveName(),score,at:new Date().toISOString()});
-    arr.sort((a,b)=>b.score-a.score); store(arr.slice(0,10)); render();
+    arr.sort((a,b)=>b.score-a.score || a.at.localeCompare(b.at));
+    store(arr.slice(0,10)); render();
   };
   const render = ()=>{
     const arr=load(); tBody.innerHTML='';
@@ -110,67 +152,222 @@ const LB = (()=> {
   };
   return {saveName,getName,add,render,exportCSV};
 })();
-/* ========= game state (placeholder runner) ========= */
+
+/* ========= canvas & state ========= */
 const canvas=$('#game'), ctx=canvas.getContext('2d');
 let running=false, paused=false, slow=false;
-let t=0, speed=6, vx=0, x=100, y=H-120, vy=0, onGround=true;
-let hearts=3, score=0, coins=[], hazards=[], combo=0, biome=0, biomeCoins=0;
-const biomes=['Preparation Valley','Contraction Forest','Birth Tunnel','Mother’s Heart Bridge','Life Garden'];
+let t=0, speed=6, vx=0, x=120, y=H-120, vy=0, onGround=true;
+let hearts=3, score=0, coins=[], hazards=[], combo=0, biomeCoins=0;
+let difficulty=0;
 
 function resetRun(){
   speed=6; vx=0; x=120; y=H-120; vy=0; onGround=true;
-  hearts=3; score=0; combo=0; coins=[]; hazards=[]; biome=0; biomeCoins=0;
+  hearts=3; score=0; combo=0; coins=[]; hazards=[]; biomeCoins=0; difficulty=0;
 }
 
-function spawnCoin(){ coins.push({x:W+40,y:H-120-[0,60,120][Math.floor(Math.random()*3)],r:12}); }
-function spawnHazard(){ // simple block
-  hazards.push({x:W+60,y:H-100,w:40,h:40,type:'wall'});
+/* ========= helpers ========= */
+function roundedRect(ctx,x,y,w,h,r){
+  const rr=Math.min(r,w/2,h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+rr,y);
+  ctx.arcTo(x+w,y,x+w,y+h,rr);
+  ctx.arcTo(x+w,y+h,x,y+h,rr);
+  ctx.arcTo(x,y+h,x,y,rr);
+  ctx.arcTo(x,y,x+w,y,rr);
+  ctx.closePath();
 }
-function tick(dt){
-  t+=dt*(slow?0.5:1);
-  // difficulty
-  if (t%1<dt) { // periodic spawns
-    if (Math.random()<0.6) spawnCoin();
-    if (Math.random()<0.25) spawnHazard();
+
+/* Care Coin: kalp/“+” çağrışımlı */
+function drawCareCoin(c){
+  const {x,y,r}=c;
+  // alt sarı disk
+  ctx.fillStyle='#ffd86b';
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  // beyaz artı
+  ctx.fillStyle='#ffffff';
+  const s=r*0.5;
+  roundedRect(ctx,x-s,y-0.12*r,2*s,0.24*r,4); ctx.fill();
+  roundedRect(ctx,x-0.12*r,y-s,0.24*r,2*s,4); ctx.fill();
+}
+
+/* Hastane koridoru */
+function drawCorridorBackground(){
+  const wallTop = '#ffffff', wallBottom = '#f3f6fb', line = 'rgba(31,42,68,.08)';
+  const midY = H*0.55;
+
+  // üst duvar
+  const gTop = ctx.createLinearGradient(0,0,0,midY);
+  gTop.addColorStop(0,'#ffffff');
+  gTop.addColorStop(1,'#f8fbff');
+  ctx.fillStyle = gTop; ctx.fillRect(0,0,W,midY);
+
+  // zemin
+  const gFloor = ctx.createLinearGradient(0,midY,0,H);
+  gFloor.addColorStop(0,'#eef3ff');
+  gFloor.addColorStop(1,'#e3ecff');
+  ctx.fillStyle = gFloor; ctx.fillRect(0,midY,W,H-midY);
+
+  // perspektif grid
+  ctx.strokeStyle = line; ctx.lineWidth=1;
+  const vanX = W/2, vanY = midY-80;
+  for(let i=0;i<12;i++){
+    const frac = (i/11 - 0.5)*2;
+    ctx.beginPath();
+    ctx.moveTo(vanX + frac*40, vanY);
+    ctx.lineTo( (frac*0.5+0.5)*W, H );
+    ctx.stroke();
   }
-  // physics
-  x+=vx; vy+=0.9; y+=vy; if (y>H-120){ y=H-120; vy=0; onGround=true; }
-  coins.forEach(c=>c.x-=speed); hazards.forEach(h=>h.x-=speed);
-  coins=coins.filter(c=>{
+  for(let y=midY+20,step=18;y<H;y+=step,step*=1.08){
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+
+  // kapılar + kol gölgeleri
+  const doorW=70, doorH=120;
+  ctx.fillStyle='#ffffff';
+  for(let i=0;i<4;i++){
+    const offs=(i*280 + (t*80)%280);
+    const xR=W-40 - offs; const y=midY-40;
+    if(xR>-doorW && xR<W){
+      roundedRect(ctx,xR,y,doorW,doorH,10); ctx.fill();
+      ctx.fillStyle='rgba(31,42,68,.06)'; ctx.fillRect(xR+doorW-10,y+55,4,18);
+      ctx.fillStyle='#ffffff';
+    }
+    const xL=40 + offs;
+    if(xL>-doorW && xL<W){
+      roundedRect(ctx,xL,y,doorW,doorH,10); ctx.fill();
+      ctx.fillStyle='rgba(31,42,68,.06)'; ctx.fillRect(xL+6,y+55,4,18);
+      ctx.fillStyle='#ffffff';
+    }
+  }
+
+  // duvar lambaları
+  for(let i=0;i<5;i++){
+    const lx=((i*260 + (t*50)%260) % (W+160)) - 80;
+    const ly= midY-120;
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    roundedRect(ctx,lx,ly,60,14,7); ctx.fill();
+    const glow=ctx.createRadialGradient(lx+30,ly+7,5,lx+30,ly+7,90);
+    glow.addColorStop(0,'rgba(255,255,255,.35)');
+    glow.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(lx+30,ly+7,90,0,Math.PI*2); ctx.fill();
+  }
+}
+
+/* spawnerlar */
+function spawnCoin(){
+  const lanes=[0,60,120];
+  coins.push({x:W+40,y:H-120-lanes[Math.floor(Math.random()*lanes.length)],r:12});
+}
+function spawnHazard(){
+  // eğlenceli engeller: spill / panic / paper
+  const r = Math.random();
+  const baseY = H-100;
+  if (r < 0.4){ // Slippery Spill (zemin)
+    hazards.push({type:'spill', x:W+60, y:baseY, w:60, h:26, vx:speed});
+  } else if (r < 0.7){ // Panic Puff (yüzen bulut)
+    const yy = baseY - 60 - Math.random()*100;
+    hazards.push({type:'panic', x:W+60, y:yy, w:0, h:0, vy:(Math.random()<.5?0.4:-0.4), vx:speed});
+  } else { // Paperwork Pile (blok)
+    hazards.push({type:'paper', x:W+60, y:baseY-40, w:40, h:40, vx:speed});
+  }
+}
+
+/* fizik & zorluk */
+function tick(dt){
+  // zorluk zamana + performansa göre artar
+  difficulty += dt * 0.06;
+  speed = 6 + difficulty*1.2 + Math.min(2, Math.floor(score/200)*0.5);
+
+  t += dt*(slow?0.5:1);
+
+  // periyodik spawn
+  if (t%1 < dt){
+    const coinChance = 0.65 + Math.min(.2, difficulty*0.15);
+    const hazardChance = 0.20 + Math.min(.45, difficulty*0.25);
+    if (Math.random() < coinChance) spawnCoin();
+    if (Math.random() < hazardChance) spawnHazard();
+  }
+
+  // fizik
+  x += vx; vy += 0.9; y += vy;
+  if (y>H-120){ y=H-120; vy=0; onGround=true; }
+
+  // hareket
+  coins.forEach(c=>c.x -= speed);
+  hazards.forEach(h=>{
+    h.x -= speed;
+    if(h.type==='panic'){
+      h.y += h.vy;
+      if (h.y < H-220 || h.y > H-80) h.vy *= -1;
+    }
+  });
+
+  // coin çarpışma
+  coins = coins.filter(c=>{
     const dx=(x+20)-c.x, dy=(y+20)-c.y;
-    const hit = Math.hypot(dx,dy)<(20+c.r);
-    if (hit){ score+=10*(1+Math.floor(combo/5)); combo++; biomeCoins++; if (biomeCoins>=60 && biome<4){ biome++; biomeCoins=0; speed+=1; } }
+    const hit = Math.hypot(dx,dy) < (20+c.r);
+    if (hit){ score += 10*(1+Math.floor(combo/5)); combo++; biomeCoins++; }
     return !hit && c.x>-40;
   });
-  hazards=hazards.filter(h=>{
-    const hit = (x+20>h.x && x<h.x+h.w && y+40>h.y && y<h.y+h.h);
+
+  // hazard çarpışma
+  hazards = hazards.filter(h=>{
+    let hit=false;
+    if (h.type==='panic'){
+      hit = Math.hypot((x+20)-h.x,(y+20)-h.y) < 30;
+    } else {
+      hit = (x+20>h.x && x<h.x+h.w && y+40>h.y && y<h.y+h.h);
+    }
     if (hit){ hearts--; combo=0; }
     return !hit && h.x>-60;
   });
+
+  // ilerleme: her 60 coin küçük hız artışı
+  if (biomeCoins >= 60){ biomeCoins=0; speed += 0.6; }
+
   if (hearts<=0) gameOver();
 }
+
+/* çizim */
 function draw(){
-  // bg by biome
-  const cols=['#122039','#15244a','#1a2758','#1c2e63','#21346d'];
-  ctx.fillStyle=cols[biome]; ctx.fillRect(0,0,W,H);
-  // ground line
-  ctx.fillStyle='#2f3c7e'; ctx.fillRect(0,H-80,W,6);
-  // player
-  ctx.fillStyle='#ffd1dc'; ctx.fillRect(x,y,40,40); // placeholder rect as character
+  drawCorridorBackground();
+
+  // oyuncu (placeholder pembe kapsül)
+  ctx.fillStyle='#ffc9de';
+  roundedRect(ctx,x,y,40,40,10); ctx.fill();
+
   // coins
-  ctx.fillStyle='#ffd66b'; coins.forEach(c=>{ctx.beginPath();ctx.arc(c.x,c.y,c.r,0,Math.PI*2);ctx.fill();});
+  coins.forEach(drawCareCoin);
+
   // hazards
-  ctx.fillStyle='#ff6b6b'; hazards.forEach(h=>ctx.fillRect(h.x,h.y,h.w,h.h));
+  hazards.forEach(h=>{
+    if(h.type==='spill'){
+      ctx.fillStyle='#a8d8ff'; roundedRect(ctx,h.x,h.y,h.w,h.h,8); ctx.fill();
+      ctx.globalAlpha=.25; ctx.fillStyle='#fff'; roundedRect(ctx,h.x+6,h.y+5,h.w-12,h.h-10,8); ctx.fill(); ctx.globalAlpha=1;
+    }else if(h.type==='panic'){
+      ctx.globalAlpha=.75; ctx.fillStyle='#ffd3b6';
+      ctx.beginPath(); ctx.arc(h.x,h.y,22,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+    }else{
+      ctx.fillStyle:'#d4b5ff';
+      roundedRect(ctx,h.x,h.y,h.w,h.h,6); ctx.fill();
+      ctx.fillStyle='rgba(31,42,68,.15)'; ctx.fillRect(h.x+6,h.y+6,h.w-12,6);
+    }
+  });
+
   // HUD
-  ctx.fillStyle='#fff'; ctx.font='20px system-ui';
+  ctx.fillStyle='#1f2a44'; ctx.font='18px system-ui';
   ctx.fillText(`Score: ${score}`,20,34);
   ctx.fillText(`Hearts: ${'♥'.repeat(hearts)}`,20,60);
-  ctx.fillText(`Biome: ${biomes[biome]}`,20,86);
-  // progress bar for biome coin gate
+  ctx.fillText(`Corridor Pace: ${(speed).toFixed(1)}x`,20,86);
+
+  // ilerleme çubuğu
   const need=60, w=220, p=biomeCoins/need;
-  ctx.strokeStyle='#fff'; ctx.strokeRect(20,96,w,10);
-  ctx.fillStyle='#7ad3ff'; ctx.fillRect(20,96,w*p,10);
+  ctx.strokeStyle='rgba(31,42,68,.2)'; ctx.strokeRect(20,96,w,10);
+  ctx.fillStyle='#86e3ce'; ctx.fillRect(20,96,w*p,10);
 }
+
+/* ===== loop / lifecycle ===== */
 let last=0;
 function loop(ts){
   if(!running||paused){ last=ts; requestAnimationFrame(loop); return; }
@@ -188,6 +385,7 @@ function gameOver(){
   LB.add(score);
   $('#gameOverPanel').style.display='flex';
 }
+
 /* ===== controls ===== */
 const keys={};
 addEventListener('keydown',e=>{
@@ -224,10 +422,14 @@ $('#btnCloseLB').onclick=()=>{ $('#leaderboardPanel').style.display='none'; };
 $('#btnExportCSV').onclick=()=>LB.exportCSV();
 $('#btnRestart').onclick=()=>startGame();
 $('#btnGoTitle').onclick=()=>{ $('#gameOverPanel').style.display='none'; $('#titleScreen').style.display='flex'; };
-document.addEventListener('DOMContentLoaded',()=>{ const n=localStorage.getItem(LS_NAME); if(n) $('#playerName').value=n; });
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const n=localStorage.getItem(LS_NAME); if(n) $('#playerName').value=n;
+});
+
 /* ===== start in title ===== */
 $('#titleScreen').style.display='flex';
-draw(); // show first frame
+draw(); // first frame
 </script>
 </body>
 </html>
